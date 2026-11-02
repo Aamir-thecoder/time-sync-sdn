@@ -11,7 +11,6 @@ results/
 │   ├── synchronization_delay_experiment.csv
 │   └── clock_offset_accuracy.csv
 ├── qos/
-│   ├── static_qos_comparison.csv
 │   ├── dynamic_qos_verification.csv
 │   └── performance/
 │       ├── baseline_repeat.csv
@@ -36,7 +35,6 @@ results/
 
 ## QoS experiments
 
-- `qos/static_qos_comparison.csv`: earlier comparison of baseline forwarding and manually installed static UDP QoS rules.
 - `qos/dynamic_qos_verification.csv`: recorded observations for Dynamic QoS activation/deactivation and Queue 1 packet counters.
 
 ## QoS performance comparison
