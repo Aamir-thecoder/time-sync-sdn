@@ -1,7 +1,0 @@
-Sample,Simulated_client_clock_ahead_ms,Expected_server_minus_client_offset_ms,Estimated_offset_ms,Absolute_offset_error_ms
-1,50.0,-50.0,-44.67,5.33
-2,50.0,-50.0,-44.977,5.023
-3,50.0,-50.0,-44.407,5.593
-4,50.0,-50.0,-44.818,5.182
-5,50.0,-50.0,-44.645,5.355
-Average,50.0,-50.0,-44.7034,5.2966
