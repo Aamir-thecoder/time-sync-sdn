@@ -1,0 +1,4 @@
+Condition,Run,Client1_RTT_ms,Client2_RTT_ms,TCP_receiver_throughput_Mbps,TCP_retransmissions,Notes
+Special UDP rules removed,Baseline,525.643,951.24,9.34,1021,One reported baseline run
+Static UDP QoS rules installed,QoS Test 1,34.5,64.444,8.45,715,One reported QoS run
+Static UDP QoS rules installed,QoS Test 2,36.734,64.417,9.33,1080,Second reported QoS run

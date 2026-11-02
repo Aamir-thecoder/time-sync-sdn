@@ -1,0 +1,6 @@
+Check,Observed_value,Expected_or_configured_value,Result,Notes
+Congestion activation rate,9.69 Mbps,Above 6 Mbps for 2 consecutive samples,Activated,POX reported congestion detection and installed high-priority UDP rules
+Congestion clear rate,0.00 Mbps,At or below 3.5 Mbps for 3 consecutive samples,Deactivated,POX reported congestion cleared and returned to NORMAL
+Queue 1 packets on server-facing port (s1-eth1),50,Synchronization requests/responses during benchmark,Verified,Queue errors: 0; observed bytes: 2500
+Queue 1 packets on Client 1 port (s1-eth2),50,Synchronization requests/responses during benchmark,Verified,Queue errors: 0; observed bytes: 3300
+Queue 1 packets on Client 2 port (s1-eth3),0,No Client 2 benchmark was run in this test,Expected,Queue errors: 0; no Client 2 packets were generated

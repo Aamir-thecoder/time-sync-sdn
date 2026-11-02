@@ -1,0 +1,4 @@
+Test,Server_link_delay_ms,Client1_link_delay_ms,Client2_link_delay_ms,Client1_RTT_ms,Client1_clock_offset_ms,Client2_RTT_ms,Client2_clock_offset_ms,Notes
+Initial configured delays,10,20,50,35.859,5.859,64.097,20.561,One observed run with configured host-link delays
+Client 1 delay increased,10,100,50,117.589,N/A (not recorded),65.186,N/A (not recorded),One observed run after increasing Client 1 link delay to 100 ms
+Client 1 delay restored,10,20,50,35.278,N/A (not recorded),N/A (not recorded),N/A (not recorded),One observed run after restoring Client 1 link delay to 20 ms
