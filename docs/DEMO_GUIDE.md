@@ -6,15 +6,8 @@ This guide is for a presenter who needs to demonstrate the project in a fixed or
 
 Use the Ubuntu VM for the demonstration. The commands below check the required software first and install only missing Ubuntu packages.
 
-### 1. Check the operating system
 
-```bash
-cat /etc/os-release
-```
-
-The commands in this guide are written for Ubuntu.
-
-### 2. Check Python, Git, Mininet, Open vSwitch and iperf3
+### 1. Check Python, Git, Mininet, Open vSwitch and iperf3
 
 Run this block in a normal Ubuntu terminal (not at the `mininet>` prompt):
 
@@ -46,144 +39,164 @@ Check the installed versions/commands:
 python3 --version
 git --version
 mn --version
-ovs-vsctl --version | head -n 1
-ovs-ofctl --version | head -n 1
-iperf3 --version | head -n 1
+ovs-vsctl --version 
+ovs-ofctl --version 
+iperf3 --version 
 ```
 
 The Ubuntu packages used above are `mininet`, `openvswitch-switch` and `iperf3`; Mininet's installation guide also documents installing Mininet and starting Open vSwitch on Ubuntu/Debian. See the [Mininet installation guide](https://mininet.org/download/).
 
-### 3. Make sure the Open vSwitch service is running
+
+### 2. Check Open vSwitch service
+
+Check whether Open vSwitch is running:
 
 ```bash
-if systemctl is-active --quiet openvswitch-switch; then
-    echo "Open vSwitch service is running."
-else
-    echo "Starting Open vSwitch service..."
-    sudo systemctl enable --now openvswitch-switch
-fi
-
 systemctl is-active openvswitch-switch
 ```
 
-The final command should print `active`.
+If the output is `active`, continue to the next step.
 
-### 4. Check POX and install it if it is missing
-
-POX is obtained from its official GitHub repository. Check whether `pox.py` exists:
+If it is not running, start the service:
 
 ```bash
-if [ -f "$HOME/pox/pox.py" ]; then
-    echo "POX is present at $HOME/pox"
-else
-    echo "POX is not present at $HOME/pox"
-fi
+sudo systemctl enable --now openvswitch-switch
 ```
 
-If POX is missing and `~/pox` does not already exist, clone it:
+### 3. Check POX and install if missing
+
+Check whether POX is already installed:
+
+```bash
+ls ~/pox/pox.py
+```
+
+If the file exists, POX is installed.
+
+If it is missing, clone the official POX repository:
 
 ```bash
 git clone https://github.com/noxrepo/pox.git ~/pox
 ```
 
-Then verify it:
+Verify the installation:
 
 ```bash
-ls -l ~/pox/pox.py
+ls ~/pox/pox.py
 ```
+
 
 If a `~/pox` directory already exists but does not contain `pox.py`, inspect that directory before cloning; do not overwrite or delete an existing POX folder blindly. POX's official repository documents running the controller through `pox.py`: [POX on GitHub](https://github.com/noxrepo/pox).
 
-### 5. Check out the project and verify its files
 
-Keep the project in `~/time-sync-sdn`. If the folder does not exist yet, clone the repository:
+### 4. Clone the Project Repository
+
+Clone the project from GitHub:
 
 ```bash
-if [ ! -d "$HOME/time-sync-sdn" ]; then
-    git clone https://github.com/Aamir-thecoder/time-sync-sdn.git "$HOME/time-sync-sdn"
-else
-    echo "Project folder already exists at $HOME/time-sync-sdn"
-fi
+git clone https://github.com/Aamir-thecoder/time-sync-sdn.git ~/time-sync-sdn
 ```
 
-Then check that the required files are present:
+Navigate to the project directory:
 
 ```bash
 cd ~/time-sync-sdn
-
-for file in topology.py server.py client.py qos_setup.py dynamic_qos.py benchmark_client.py; do
-    if [ -f "$file" ]; then
-        echo "[OK] $file"
-    else
-        echo "[MISSING] $file"
-    fi
-done
 ```
 
-`benchmark_client.py` is needed only if you plan to run the performance comparison. The other files are needed for the complete Dynamic QoS demonstration.
+Check that the project files are present:
 
-### 6. Make the Dynamic QoS component visible to POX
+```bash
+ls
+```
 
-Create/update the symbolic link once:
+Make sure the following files are present:
+
+- `topology.py`
+- `server.py`
+- `client.py`
+- `qos_setup.py`
+- `dynamic_qos.py`
+- `benchmark_client.py`
+- `docs/`
+- `results/`
+
+
+### 5. Link the Dynamic QoS Component to POX
+
+POX needs access to `dynamic_qos.py` to load the controller component.
+
+Create a symbolic link:
 
 ```bash
 ln -sf ~/time-sync-sdn/dynamic_qos.py ~/pox/pox/dynamic_qos.py
 ```
 
-Verify that the link resolves to the project file:
+Verify the link:
 
 ```bash
-readlink -f ~/pox/pox/dynamic_qos.py
+ls -l ~/pox/pox/dynamic_qos.py
 ```
 
-The output should point to `~/time-sync-sdn/dynamic_qos.py` (expanded to your home directory).
+The file should point to `~/time-sync-sdn/dynamic_qos.py`.
 
-### 7. Check the automatic queue setup and benchmark syntax
+### 6. Verify the Project Files
 
-Confirm that `topology.py` imports `configure_qos` from `qos_setup.py` and calls `configure_qos()` immediately after `net.start()`.
-
-Run a syntax check:
+Navigate to the project directory:
 
 ```bash
 cd ~/time-sync-sdn
-python3 -m py_compile topology.py qos_setup.py dynamic_qos.py benchmark_client.py
 ```
 
-If you are not running the performance comparison, you can omit `benchmark_client.py` from the syntax-check command.
+Check that the Python files have valid syntax:
 
-### 8. Prepare the terminals and verify the project path
+```bash
+python3 -m py_compile topology.py server.py client.py qos_setup.py dynamic_qos.py benchmark_client.py
+```
 
-- Keep the project folder at `~/time-sync-sdn` and POX at `~/pox`. These paths use `~`, so they work regardless of the Ubuntu username.
-- Open three terminal windows/tabs: one for POX, one for Mininet, and one spare for checks if needed.
-- Keep the POX and Mininet terminals open while the system is running.
+If the command finishes without errors, the Python files pass the syntax check.
+
+### 7. Prepare the Terminals
+
+Before starting the system:
+
+- Keep the project folder at `~/time-sync-sdn` and POX at `~/pox`.
+- Open two terminal windows: one for POX and one for Mininet. A third terminal is optional.
+- Keep both terminals open while the system is running.
 - Commands shown at the `mininet>` prompt must be entered in the Mininet terminal.
-- Start Mininet from the project directory (`cd ~/time-sync-sdn` before running `sudo python3 topology.py`). The Mininet hosts inherit that working directory, allowing the demo commands to use relative paths such as `./server.py` so the commands do not contain any account-specific absolute paths.
-- After Mininet starts, verify the working directory from the Mininet hosts:
 
-  ```text
-  server pwd
-  client1 pwd
-  ```
+**Important:** Start Mininet from the project directory so its hosts can access project files using relative paths such as `./server.py` and `./client.py`.
 
-  Both should show the project directory ending in `/time-sync-sdn`. If they do not, start Mininet again from `~/time-sync-sdn`.
+After Mininet starts, verify the working directory:
 
-## Start the system — exact terminal order
+```text
+server pwd
+client1 pwd
+client2 pwd
+```
 
-### Terminal 1: POX controller with Dynamic QoS
+All three should show a path ending in `/time-sync-sdn`.
+
+## Start the System — Exact Terminal Order
+
+### Terminal 1: POX Controller with Dynamic QoS
 
 ```bash
 cd ~/pox
 python3 ./pox.py forwarding.l2_learning dynamic_qos
 ```
 
-Wait for messages indicating that the Dynamic QoS monitor has started and that POX is listening for OpenFlow connections. The configured initial thresholds are:
+Wait for messages indicating that the Dynamic QoS monitor has started and POX is listening for OpenFlow connections.
 
-- Activate: traffic above 6 Mbps for 2 consecutive samples.
-- Deactivate: traffic at or below 3.5 Mbps for 3 consecutive samples.
+The configured thresholds are:
 
-Keep this terminal open. During the demo, use it to show congestion detection, QoS activation and recovery messages.
+- **Activation:** Traffic at or above 6 Mbps for 2 consecutive samples.
+- **Deactivation:** Traffic at or below 3.5 Mbps for 3 consecutive samples.
 
-### Terminal 2: Mininet topology
+Keep this terminal open. During the demonstration, use it to show congestion detection, QoS activation and automatic recovery.
+
+
+### Terminal 2: Mininet Topology
+
 
 ```bash
 cd ~/time-sync-sdn
@@ -209,198 +222,264 @@ Expected topology:
 
 The `pingall` test should show connectivity between all hosts.
 
-### Verify automatic QoS queue creation
+### Verify QoS Queue Configuration
 
-At `mininet>` run:
+After Mininet starts, verify that QoS is attached to all three switch ports:
 
-```text
+```bash
 sh ovs-vsctl --columns=name,qos list Port
 ```
 
-Point out that QoS is attached to `s1-eth1`, `s1-eth2` and `s1-eth3`. The queues are created automatically by `qos_setup.py`; they do not need to be configured manually for each run.
+The output should show QoS attached to:
 
-To inspect queue definitions, use:
+- `s1-eth1` — Server
+- `s1-eth2` — Client 1
+- `s1-eth3` — Client 2
 
-```text
-sh ovs-vsctl list QoS
-sh ovs-vsctl list Queue
+This confirms that `qos_setup.py` automatically created and attached the QoS configurations.
+
+---
+
+
+## Demonstration 1 — UDP Time Synchronization and Multiple Clients
+
+At the `mininet>` prompt, start the reference time server:
+
+```bash
+server python3 -u ./server.py &
 ```
 
-## Demonstration 1 — UDP time synchronization
+Verify that the server is running:
 
-At `mininet>` start the reference time server:
-
-```text
-server python3 -u ./server.py &
+```bash
+server pgrep -af server.py
 ```
 
 Run Client 1:
 
-```text
-client1 python3 ./client.py 10.0.0.1
+```bash
+client1 python3 -u ./client.py 10.0.0.1
 ```
 
 Run Client 2:
 
-```text
-client2 python3 ./client.py 10.0.0.1
+```bash
+client2 python3 -u ./client.py 10.0.0.1
 ```
 
-Explain:
+Both clients should display the four timestamps, calculated RTT, and estimated clock offset.
 
-> “The clients send UDP timestamp requests to the reference server. The server records its receive and send timestamps and returns them to the client. The client uses the four timestamps to calculate round-trip delay and estimate the clock offset. The program estimates the offset; it does not change the host operating-system clock.”
+### Simultaneous Client Test
 
-## Demonstration 2 — Dynamic QoS activation under congestion
+Run both clients in the background to generate requests at approximately the same time:
+
+```bash
+client1 python3 -u ./client.py 10.0.0.1 > /tmp/client1.log 2>&1 &
+client2 python3 -u ./client.py 10.0.0.1 > /tmp/client2.log 2>&1 &
+```
+
+Wait briefly and display both results:
+
+```bash
+client1 sleep 1
+client1 cat /tmp/client1.log
+client2 cat /tmp/client2.log
+```
+
+Both clients should complete their synchronization requests successfully.
+
+**Explanation:**
+
+> The clients communicate with a common UDP reference server. The server receives timestamp requests and sends responses containing the required timestamps. Each client calculates its RTT and estimates its clock offset. The application supports multiple clients communicating with the same server.
+
+---
+
+## Demonstration 2 — Dynamic QoS Prioritization Under Congestion
 
 Start an iperf3 server on the reference-server host:
 
-```text
+```bash
 server iperf3 -s -p 5201 &
 ```
 
-Start competing TCP traffic from Client 1:
+Generate competing TCP traffic from Client 1:
 
-```text
-client1 iperf3 -c 10.0.0.1 -p 5201 -t 30
+```bash
+client1 iperf3 -c 10.0.0.1 -p 5201 -t 60 &
 ```
 
-Watch Terminal 1 (POX). When the monitored switch-port traffic exceeds the activation threshold for two consecutive samples, the controller should report congestion and activate the high-priority UDP synchronization rules.
+Watch Terminal 1 (POX). When monitored traffic reaches or exceeds 6 Mbps for two consecutive samples, the controller should detect congestion and activate the high-priority UDP synchronization rules.
 
-Explain:
+### Verify OpenFlow Rules
 
-> “The controller polls OpenFlow port statistics and calculates traffic rates. When sustained traffic crosses the configured threshold, POX installs high-priority rules for UDP port 9999. These rules classify synchronization packets into Queue 1. The TCP traffic remains ordinary competing traffic.”
+While congestion is active, run:
 
-## Demonstration 3 — Verify the installed flow rules
-
-While congestion is active, run this at `mininet>`:
-
-```text
+```bash
 sh ovs-ofctl -O OpenFlow10 dump-flows s1
 ```
 
-Point out the four high-priority rules (priority `60000`) that match UDP synchronization traffic and enqueue it on Queue 1:
+The output should contain four high-priority rules with priority `60000`.
 
-| Direction | Match | Output queue |
-|---|---|---|
-| Client 1 to server | UDP destination port 9999, input port 2 | Port 1, Queue 1 |
-| Client 2 to server | UDP destination port 9999, input port 3 | Port 1, Queue 1 |
-| Server to Client 1 | UDP source port 9999, destination `10.0.0.2` | Port 2, Queue 1 |
-| Server to Client 2 | UDP source port 9999, destination `10.0.0.3` | Port 3, Queue 1 |
+These rules classify UDP synchronization traffic on port `9999` and direct matching packets to Queue 1.
 
-The rules are installed by POX; they are not manually added with `ovs-ofctl` during the dynamic test.
+### Verify Queue 1 Forwarding
 
-## Demonstration 4 — Verify synchronization packets use Queue 1
+While TCP traffic is still running, execute:
 
-While the TCP load is active, run the synchronization clients:
-
-```text
-client1 python3 ./client.py 10.0.0.1
-client2 python3 ./client.py 10.0.0.1
+```bash
+client1 python3 -u ./client.py 10.0.0.1
+client2 python3 -u ./client.py 10.0.0.1
 ```
 
-Then inspect queue counters:
+Check the queue statistics:
 
-```text
+```bash
 sh ovs-ofctl -O OpenFlow10 queue-stats s1
 ```
 
-Explain:
+Queue 1 packet counters should increase as synchronization requests and responses are processed.
 
-> “The Queue 1 packet counters increase when the synchronization requests and responses are classified into the high-priority queue. Queue counters provide evidence that the matching packets were enqueued. The counters may differ between runs depending on how many client requests were sent.”
+**Explanation:**
 
-## Demonstration 5 — Automatic recovery after congestion
+> The POX controller monitors OpenFlow port statistics and detects congestion based on measured traffic rates. When the activation threshold is reached, it automatically installs high-priority flow rules that direct UDP synchronization traffic to Queue 1, giving it priority over ordinary traffic.
 
-Allow the iperf3 test to finish. Watch Terminal 1. Once the traffic remains at or below 3.5 Mbps for three consecutive samples, POX should report that congestion has cleared and remove the special prioritization rules.
+---
 
-Verify at `mininet>`:
+## Demonstration 3 — Automatic Recovery and Performance Evaluation
 
-```text
+### Automatic Recovery
+
+Allow the competing TCP traffic to finish.
+
+Watch Terminal 1 (POX). When traffic remains at or below 3.5 Mbps for three consecutive samples, the controller should detect that congestion has cleared and automatically remove the special prioritization rules.
+
+Verify the flow table:
+
+```bash
 sh ovs-ofctl -O OpenFlow10 dump-flows s1
 ```
 
-The four special UDP prioritization rules should no longer be present after the controller deactivates them. The QoS queues remain attached to the ports; only the dynamic classification rules are removed.
+The four special UDP prioritization rules should no longer be present.
 
-Explain:
+The QoS queues remain configured on Open vSwitch; only the special OpenFlow rules are removed.
 
-> “The controller uses separate activation and deactivation thresholds, known as hysteresis. This prevents repeated switching when traffic fluctuates near one threshold. When congestion clears, the controller removes the temporary UDP prioritization rules automatically.”
+**Explanation:**
 
-## Demonstration 6 — Performance comparison
+> The controller uses separate activation and deactivation thresholds to implement hysteresis. This prevents frequent switching between QoS states. When congestion clears, the controller automatically removes the temporary prioritization rules and returns synchronization traffic to normal queueing.
 
-The benchmark program sends repeated synchronization requests and saves each RTT and offset measurement to a CSV file.
+### Performance Evaluation
 
-Use the same topology, server, TCP traffic duration and benchmark parameters for both runs. Restart both POX and Mininet between the baseline and Dynamic QoS tests.
+The project compares synchronization performance under competing TCP traffic in two configurations:
 
-### Test A: Baseline without Dynamic QoS
+- **Baseline:** POX runs without the Dynamic QoS component.
+- **Dynamic QoS:** POX monitors congestion and automatically prioritizes synchronization traffic.
 
-1. Exit Mininet and stop POX with `Ctrl+C`.
+Both configurations use the same Mininet topology, TCP load duration and benchmark settings.
+
+The benchmark collects 50 synchronization measurements under a 90-second TCP load.
+
+#### Test A — Baseline (Without Dynamic QoS)
+
+1. Exit Mininet by typing `exit` and stop POX using `Ctrl+C`.
+
 2. Start POX without the Dynamic QoS component:
 
-   ```bash
-   cd ~/pox
-   python3 ./pox.py forwarding.l2_learning
-   ```
+```bash
+cd ~/pox
+python3 ./pox.py forwarding.l2_learning
+```
 
-3. Start Mininet in another terminal:
+3. Open another terminal and restart Mininet:
 
-   ```bash
-   cd ~/time-sync-sdn
-   sudo mn -c
-   sudo python3 topology.py
-   ```
+```bash
+cd ~/time-sync-sdn
+sudo mn -c
+sudo python3 topology.py
+```
 
-4. At `mininet>`, start the time server and iperf3 server:
+4. At the `mininet>` prompt, start both servers:
 
-   ```text
-   server python3 -u ./server.py &
-   server iperf3 -s -p 5201 &
-   ```
+```bash
+server python3 -u ./server.py &
+server iperf3 -s -p 5201 &
+```
 
-5. Start a 90-second TCP load and immediately run the benchmark:
+5. Start competing TCP traffic:
 
-   ```text
-   client1 iperf3 -c 10.0.0.1 -p 5201 -t 90 > /tmp/baseline-iperf.log 2>&1 &
-   client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./baseline.csv
-   ```
+```bash
+client1 iperf3 -c 10.0.0.1 -p 5201 -t 90 > /tmp/baseline-iperf.log 2>&1 &
+```
 
-6. Save the benchmark summary and TCP log. Check the TCP test duration and receiver throughput:
+6. Immediately run the synchronization benchmark:
 
-   ```text
-   client1 cat /tmp/baseline-iperf.log
-   ```
+```bash
+client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./results/qos/performance/baseline_freshvm.csv
+```
 
-With no Dynamic QoS component, the special UDP classification rules are not installed; synchronization packets use the normal/default queue.
+7. Check the TCP test results:
 
-### Test B: Dynamic QoS enabled
+```bash
+client1 cat /tmp/baseline-iperf.log
+```
 
-1. Exit Mininet and stop the baseline POX process with `Ctrl+C`.
-2. Start POX with Dynamic QoS:
+#### Test B — Dynamic QoS
 
-   ```bash
-   cd ~/pox
-   python3 ./pox.py forwarding.l2_learning dynamic_qos
-   ```
+1. Exit Mininet and stop the baseline POX controller.
 
-3. Restart Mininet using the same commands as Test A. Start the same UDP time server and iperf3 server.
-4. Start the same TCP load and benchmark:
+2. Restart POX with Dynamic QoS enabled:
 
-   ```text
-   client1 iperf3 -c 10.0.0.1 -p 5201 -t 90 > /tmp/dynamic-iperf.log 2>&1 &
-   client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./dynamic.csv
-   ```
+```bash
+cd ~/pox
+python3 ./pox.py forwarding.l2_learning dynamic_qos
+```
 
-5. Verify in the POX terminal that the controller activated prioritization during the benchmark. Inspect Queue 1 counters:
+3. Restart Mininet using the same commands as Test A.
 
-   ```text
-   sh ovs-ofctl -O OpenFlow10 queue-stats s1
-   ```
+4. At the `mininet>` prompt, start both servers again:
 
-6. Save the benchmark summary and TCP log:
+```bash
+server python3 -u ./server.py &
+server iperf3 -s -p 5201 &
+```
 
-   ```text
-   client1 cat /tmp/dynamic-iperf.log
-   ```
+5. Start the same 90-second competing TCP traffic:
 
-Compare average, median and 95th-percentile RTT, successful and failed measurements, and TCP receiver throughput. Repeat both tests if time permits; a single run per configuration is preliminary evidence, not a statistically conclusive result.
+```bash
+client1 iperf3 -c 10.0.0.1 -p 5201 -t 90 > /tmp/dynamic-iperf.log 2>&1 &
+```
+
+6. Immediately run the same synchronization benchmark:
+
+```bash
+client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./results/qos/performance/dynamic_freshvm.csv
+```
+
+7. Verify the TCP test results:
+
+```bash
+client1 cat /tmp/dynamic-iperf.log
+```
+
+Check the POX terminal to confirm that congestion detection and automatic QoS activation occurred during the benchmark.
+
+#### Metrics Collected
+
+The benchmark evaluates:
+
+- Average RTT
+- Median RTT
+- Minimum RTT
+- Maximum RTT
+- 95th-percentile RTT
+- Successful and failed synchronization requests
+- TCP receiver throughput
+- TCP retransmissions
+
+Compare the baseline and Dynamic QoS results to evaluate the effect of automatic synchronization-traffic prioritization.
+
+**Note:** The existing experimental results are stored in `results/qos/performance/`. The fresh-VM benchmark runs use separate CSV filenames so the original experimental data is not overwritten.
+
+The initial experiments showed an average RTT reduction of approximately **97.74%** with Dynamic QoS enabled. This is a preliminary result based on one run per configuration. Additional repeated trials are recommended for stronger performance conclusions.
 
 ### Initial measured results
 
@@ -434,4 +513,3 @@ The observed average RTT reduction between these two runs was approximately 97.7
    ```bash
    sudo mn -c
    ```
-
