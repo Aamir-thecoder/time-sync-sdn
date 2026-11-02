@@ -9,7 +9,11 @@ results/
 ├── README.md
 ├── synchronization/
 │   ├── synchronization_delay_experiment.csv
-│   └── clock_offset_accuracy.csv
+│   ├── clock_offset_accuracy.csv
+│   ├── clock_offset_accuracy_freshvm.csv
+│   └── graphs/
+│       ├── link_delay_vs_rtt.png
+│       └── clock_offset_error.png
 ├── qos/
 │   ├── dynamic_qos_verification.csv
 │   └── performance/
@@ -31,7 +35,8 @@ results/
 ## Synchronization experiments
 
 - `synchronization/synchronization_delay_experiment.csv`: observed RTT measurements under the configured Mininet link delays, including the Client 1 link-delay change from 20 ms to 100 ms and restoration to 20 ms. Blank/unrecorded values are marked as not recorded rather than treated as zero.
-- `synchronization/clock_offset_accuracy.csv`: five measurements from the simulated client-clock offset experiment, with the calculated average absolute offset error.
+- `synchronization/clock_offset_accuracy.csv`: five measurements from the earlier simulated client-clock offset experiment, with the calculated average absolute offset error.
+- `synchronization/clock_offset_accuracy_freshvm.csv`: five fresh-VM measurements, including estimated offset, RTT, absolute error, and averages. The earlier CSV is preserved unchanged.
 
 ## QoS experiments
 
