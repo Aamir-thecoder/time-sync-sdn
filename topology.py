@@ -3,6 +3,7 @@ from mininet.node import RemoteController, OVSSwitch
 from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
+from qos_setup import configure_qos
 
 def time_sync_network():
     # Initialize Mininet with RemoteController (for SDN) and TCLink (for network delay)
@@ -28,6 +29,8 @@ def time_sync_network():
 
     print("[*] Starting Network...")
     net.start()
+
+    configure_qos()
     
     print("[*] Network is running. Opening CLI.")
     CLI(net)
