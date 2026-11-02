@@ -91,13 +91,13 @@ If a `~/pox` directory already exists but does not contain `pox.py`, inspect tha
 
 ### 4. Clone the Project Repository
 
-Clone the project from GitHub:
+Clone the project from GitHub if it is not already present:
 
 ```bash
 git clone https://github.com/Aamir-thecoder/time-sync-sdn.git ~/time-sync-sdn
 ```
 
-Navigate to the project directory:
+If `~/time-sync-sdn` already exists, do not run the clone command again. Open the existing folder instead:
 
 ```bash
 cd ~/time-sync-sdn
@@ -117,6 +117,7 @@ Make sure the following files are present:
 - `qos_setup.py`
 - `dynamic_qos.py`
 - `benchmark_client.py`
+- `client_error_test.py`
 - `docs/`
 - `results/`
 
@@ -150,7 +151,7 @@ cd ~/time-sync-sdn
 Check that the Python files have valid syntax:
 
 ```bash
-python3 -m py_compile topology.py server.py client.py qos_setup.py dynamic_qos.py benchmark_client.py
+python3 -m py_compile topology.py server.py client.py qos_setup.py dynamic_qos.py benchmark_client.py client_error_test.py
 ```
 
 If the command finishes without errors, the Python files pass the syntax check.
@@ -288,6 +289,75 @@ client2 cat /tmp/client2.log
 
 Both clients should complete their synchronization requests successfully.
 
+**Concurrency note:** The two client commands run at overlapping times. The current UDP server uses a single receive-response loop, so it handles received datagrams sequentially; this test demonstrates multi-client communication, not parallel server-side worker threads.
+
+### Controlled Link-Delay Experiment
+
+This test demonstrates how changing one client's configured link delay affects its measured RTT. Keep the UDP time server running and do not generate competing TCP traffic during this experiment. Use several samples per condition because individual RTT values can vary with VM scheduling and network overhead.
+
+**Baseline — original delays**
+
+Client 1 should use 20 ms and Client 2 should use 50 ms. Run each command three times and record the RTT from every run:
+
+```text
+client1 python3 -u ./client.py 10.0.0.1
+client2 python3 -u ./client.py 10.0.0.1
+```
+
+**Increase Client 1's delay to 100 ms**
+
+```text
+client1 tc qdisc change dev client1-eth0 root handle 10: netem delay 100ms
+client1 tc qdisc show dev client1-eth0
+```
+
+Confirm that the output shows `delay 100ms`. Run both client commands three times again and record their RTT values:
+
+```text
+client1 python3 -u ./client.py 10.0.0.1
+client2 python3 -u ./client.py 10.0.0.1
+```
+
+Client 1's average RTT should increase because its host-side delay was increased. Client 2's configured delay is unchanged, so its average RTT should remain broadly similar. Do not expect every individual RTT sample to be identical.
+
+**Restore Client 1's original delay**
+
+```text
+client1 tc qdisc change dev client1-eth0 root handle 10: netem delay 20ms
+client1 tc qdisc show dev client1-eth0
+```
+
+Confirm that the output shows `delay 20ms`. Run Client 1 once more to check that its RTT moves back toward its baseline value:
+
+```text
+client1 python3 -u ./client.py 10.0.0.1
+```
+
+The original topology delays are Server 10 ms, Client 1 20 ms, and Client 2 50 ms. This experiment changes only the Client 1 host-side interface.
+
+**Measured link-delay results**
+
+| Condition | Client 1 average RTT | Client 2 average RTT |
+|---|---:|---:|
+| Original delays (20 ms / 50 ms) | 39.185 ms (3 samples) | 65.609 ms (3 samples) |
+| Client 1 increased to 100 ms | 115.682 ms (3 samples) | 66.555 ms (4 samples) |
+
+Client 1's original 20 ms delay was restored and verified after the measurements. Exact results may vary on another VM.
+
+### Synchronization-Error Measurement
+
+The following test simulates the Client 1 clock being 50 ms ahead of the reference server. It does not change the actual host clock.
+
+Run one measurement from Client 1:
+
+```text
+client1 python3 -u ./client_error_test.py 10.0.0.1
+```
+
+Repeat the same command until you have five successful measurements. Each execution prints one estimated offset, round-trip delay, and synchronization error. The expected server-minus-client offset is `-50 ms` because the simulated client clock is 50 ms ahead.
+
+The original script performs one measurement per execution; it does **not** automatically write a CSV file. Record the five outputs in `results/synchronization/clock_offset_accuracy_repeat.csv`. The included CSV contains the five measurements from Run 2. Keep the earlier `clock_offset_accuracy.csv` unchanged.
+
 **Explanation:**
 
 > The clients communicate with a common UDP reference server. The server receives timestamp requests and sends responses containing the required timestamps. Each client calculates its RTT and estimates its clock offset. The application supports multiple clients communicating with the same server.
@@ -371,12 +441,12 @@ The QoS queues remain configured on Open vSwitch; only the special OpenFlow rule
 
 The project compares synchronization performance under competing TCP traffic in two configurations:
 
-- **Baseline:** POX runs without the Dynamic QoS component.
-- **Dynamic QoS:** POX monitors congestion and automatically prioritizes synchronization traffic.
+- **Baseline:** POX runs without the `dynamic_qos` component. The topology still creates the OVS queues, but the controller does not install the special UDP-to-Queue-1 prioritization rules; synchronization traffic uses the default queue.
+- **Dynamic QoS:** POX monitors congestion and automatically installs the rules that prioritize synchronization traffic in Queue 1.
 
-Both configurations use the same Mininet topology, TCP load duration and benchmark settings.
+Both configurations use the same Mininet topology, TCP load duration, startup delay and benchmark settings.
 
-The benchmark collects 50 synchronization measurements under a 90-second TCP load.
+The benchmark sends 50 synchronization requests at 0.1-second intervals while a 90-second TCP transfer runs in the background. The benchmark therefore measures a short sample window during the longer competing-traffic test.
 
 #### Test A — Baseline (Without Dynamic QoS)
 
@@ -410,13 +480,19 @@ server iperf3 -s -p 5201 &
 client1 iperf3 -c 10.0.0.1 -p 5201 -t 90 > /tmp/baseline-iperf.log 2>&1 &
 ```
 
-6. Immediately run the synchronization benchmark:
+6. Wait approximately 3 seconds so the TCP transfer is established. Use the same delay before the benchmark in both configurations:
 
-```bash
-client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./results/qos/performance/baseline_freshvm.csv
+```text
+client1 sleep 3
 ```
 
-7. Check the TCP test results:
+7. Run the synchronization benchmark:
+
+```bash
+client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./results/qos/performance/baseline_additional.csv
+```
+
+8. Wait until the 90-second TCP transfer has finished before inspecting its log. The log may be incomplete while the background `iperf3` process is still running. Then check the completed TCP test results:
 
 ```bash
 client1 cat /tmp/baseline-iperf.log
@@ -448,19 +524,25 @@ server iperf3 -s -p 5201 &
 client1 iperf3 -c 10.0.0.1 -p 5201 -t 90 > /tmp/dynamic-iperf.log 2>&1 &
 ```
 
-6. Immediately run the same synchronization benchmark:
+6. Wait approximately 3 seconds and confirm in the POX terminal that congestion has been detected and Dynamic QoS has activated. Use the same 3-second delay as in the baseline test:
 
-```bash
-client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./results/qos/performance/dynamic_freshvm.csv
+```text
+client1 sleep 3
 ```
 
-7. Verify the TCP test results:
+7. Run the same synchronization benchmark while the TCP transfer is active:
+
+```bash
+client1 python3 ./benchmark_client.py 10.0.0.1 50 0.1 ./results/qos/performance/dynamic_additional_congested.csv
+```
+
+8. Wait until the 90-second TCP transfer has finished before inspecting its log. The log may be incomplete while the background `iperf3` process is still running. Then verify the completed TCP test results:
 
 ```bash
 client1 cat /tmp/dynamic-iperf.log
 ```
 
-Check the POX terminal to confirm that congestion detection and automatic QoS activation occurred during the benchmark.
+Check the POX terminal to confirm that congestion detection and automatic QoS activation occurred before and during the benchmark.
 
 #### Metrics Collected
 
@@ -477,13 +559,11 @@ The benchmark evaluates:
 
 Compare the baseline and Dynamic QoS results to evaluate the effect of automatic synchronization-traffic prioritization.
 
-**Note:** The existing experimental results are stored in `results/qos/performance/`. The fresh-VM benchmark runs use separate CSV filenames so the original experimental data is not overwritten.
-
-The initial experiments showed an average RTT reduction of approximately **97.74%** with Dynamic QoS enabled. This is a preliminary result based on one run per configuration. Additional repeated trials are recommended for stronger performance conclusions.
+**Note:** The existing experimental results are stored in `results/qos/performance/`. The additional benchmark runs use separate CSV filenames so the original experimental data is not overwritten.
 
 ### Initial measured results
 
-These are the observed results from the current VM runs. They are single-run results and may vary on another machine.
+These are the observed results from the earlier VM baseline and Dynamic QoS runs. They are single-run results and may vary on another machine.
 
 | Metric | Baseline | Dynamic QoS |
 |---|---:|---:|
@@ -497,11 +577,11 @@ These are the observed results from the current VM runs. They are single-run res
 | TCP receiver throughput | 9.38 Mbps | 9.41 Mbps |
 | TCP retransmissions | 1775 | 1833 |
 
-The observed average RTT reduction between these two runs was approximately 97.74%. The TCP receiver throughput was similar in both runs, which supports the comparison, but repeat trials are recommended before presenting this percentage as a final general result.
+The observed average RTT reduction between these two runs was approximately 97.74%. The TCP receiver throughput was similar in both runs, which supports the comparison. This is a preliminary result from one run per configuration; repeat trials are recommended before presenting the percentage as a general result.
 
 ## Short explanation for the evaluator
 
-> “Our application performs UDP-based time synchronization using a reference server and multiple clients. Mininet emulates the network, while POX provides Layer-2 forwarding and monitors OpenFlow port statistics. OVS queues are created automatically when the topology starts. When traffic exceeds 6 Mbps for two consecutive samples, the POX Dynamic QoS component installs high-priority OpenFlow rules that direct UDP synchronization traffic on port 9999 to Queue 1. When traffic falls to 3.5 Mbps or below for three consecutive samples, the controller removes those rules. We verified activation, Queue 1 packet counters and automatic recovery, then compared synchronization RTT under competing TCP traffic.”
+> “Our application performs UDP-based time synchronization using a reference server and multiple clients. We calculate RTT and clock offset using four timestamps, test the effect of controlled link-delay changes, and estimate synchronization error using a simulated 50 ms client clock offset. Mininet emulates the network, while POX provides Layer-2 forwarding and monitors OpenFlow port statistics. When traffic reaches 6 Mbps for two consecutive samples, the POX Dynamic QoS component installs high-priority OpenFlow rules that direct UDP synchronization traffic on port 9999 to Queue 1. When traffic falls to 3.5 Mbps or below for three consecutive samples, the controller removes those rules. We verified activation, Queue 1 packet counters and automatic recovery, then compared synchronization RTT under competing TCP traffic.”
 
 ## Stop the demonstration
 
