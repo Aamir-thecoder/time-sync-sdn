@@ -50,7 +50,7 @@ flowchart TB
 
 The reference server communicates with clients over UDP port `9999`. Each client sends a timestamp request and receives a response containing the client send timestamp and two server timestamps.
 
-### Timestamp Calculations
+### Timestamp calculations
 
 The synchronization process uses four timestamps:
 
@@ -61,30 +61,29 @@ The synchronization process uses four timestamps:
 | **T3** | Server sends the response |
 | **T4** | Client receives the response |
 
-**1. Round-Trip Delay (RTT)**
+**Round-trip delay (RTT)**
 
 The client calculates the network round-trip delay using:
 
 $$
-\text{RTT} = (T_4 - T_1) - (T_3 - T_2)
+\\text{RTT} = (T_4 - T_1) - (T_3 - T_2)
 $$
 
-**2. Clock Offset Estimation**
+**Clock-offset estimation**
 
 The estimated server-minus-client clock offset is calculated as:
 
 $$
-\text{Offset} = \frac{(T_2 - T_1) + (T_3 - T_4)}{2}
+\\text{Offset} = \\frac{(T_2 - T_1) + (T_3 - T_4)}{2}
 $$
 
 > **Note:** The application estimates the clock offset but does not modify the host operating system clock.
-
 
 ### 2. Controlled link delays
 
 The Mininet topology uses `TCLink` to configure different delays on the server and client links. This allows the effect of different network conditions on synchronization measurements to be observed.
 
-### 3. Dynamic SDN-Based QoS Prioritization
+### 3. Dynamic SDN-based QoS prioritization
 
 The POX controller continuously monitors OpenFlow port statistics and dynamically manages the classification of UDP time-synchronization traffic based on measured traffic rates.
 
@@ -97,9 +96,7 @@ Two QoS queues are attached to each switch port:
 
 Each switch port is configured with a maximum rate of 10 Mbps. Queue creation is handled automatically by `qos_setup.py`, while POX dynamically installs and removes OpenFlow rules to direct synchronization packets to Queue 1.
 
-#### Dynamic Decision Thresholds
-
-The current experimental configuration uses the following parameters:
+#### Dynamic decision thresholds
 
 | Setting | Value |
 |---|---:|
@@ -109,23 +106,22 @@ The current experimental configuration uses the following parameters:
 | Congestion-clear threshold | At or below 3.5 Mbps |
 | Deactivation condition | 3 consecutive samples |
 
-The difference between the activation and deactivation thresholds introduces **hysteresis**, preventing frequent switching between QoS states when traffic fluctuates.
+The difference between the activation and deactivation thresholds introduces **hysteresis**, preventing frequent switching between QoS states when traffic fluctuates. These thresholds are experimental values selected relative to the configured 10 Mbps port bandwidth, not universal networking standards.
 
-These thresholds are experimental values selected relative to the configured 10 Mbps port bandwidth, not universal networking standards.
-
-#### Controller Behaviour
+#### Controller behaviour
 
 1. POX periodically requests switch-port statistics and calculates traffic rates.
 2. When monitored traffic reaches or exceeds 6 Mbps for two consecutive samples, congestion is detected.
-3. The controller automatically installs four high-priority OpenFlow rules for UDP synchronization traffic on port `9999`.
+3. The controller installs four high-priority OpenFlow rules for UDP synchronization traffic on port `9999`.
 4. Matching packets are directed to Queue 1 on the appropriate output port.
 5. When monitored traffic remains at or below 3.5 Mbps for three consecutive samples, POX removes the special prioritization rules.
 6. Synchronization traffic returns to the default queue.
 
-**Note:** The QoS queues remain configured on Open vSwitch. The controller dynamically manages the OpenFlow rules that determine whether synchronization traffic receives high-priority treatment.
+**Implementation note:** The QoS queues remain configured on Open vSwitch. The controller dynamically manages the OpenFlow rules that determine whether synchronization traffic receives high-priority treatment.
+
 ### 4. Automatic QoS queue configuration
 
-The topology invokes the separate QoS configuration component after the Mininet network starts. This creates and attaches the queues to the three switch ports automatically. Queue creation is therefore separate from the dynamic flow-rule decisions made by POX.
+The topology invokes the separate QoS configuration component after the Mininet network starts. This creates and attaches the queues to the three switch ports automatically. Queue creation is separate from the dynamic flow-rule decisions made by POX.
 
 ### 5. Performance benchmarking
 
@@ -133,8 +129,8 @@ The project includes a benchmark client that sends repeated UDP synchronization 
 
 ---
 
+## Program files
 
-## Program Files
 | File | Description |
 |---|---|
 | `topology.py` | Creates the Mininet topology, hosts, switch, controller connection, and controlled-delay links. |
@@ -143,14 +139,15 @@ The project includes a benchmark client that sends repeated UDP synchronization 
 | `qos_setup.py` | Creates and attaches the OVS QoS queues to the switch ports. |
 | `dynamic_qos.py` | POX component for traffic monitoring, congestion detection, and dynamic OpenFlow rule management. |
 | `benchmark_client.py` | Collects repeated synchronization measurements and writes benchmark CSV files. |
+| `client_error_test.py` | Performs one UDP synchronization measurement with a simulated client clock offset and prints the estimated offset, RTT, and absolute synchronization error. |
 
-The project also includes a [Demo Guide](docs/DEMO_GUIDE.md) with setup, installation checks, execution commands, troubleshooting, and step-by-step demonstration instructions. Experimental datasets, graphs, and validation screenshots are stored in the `results/` directory.
+The repository also includes a [Demo Guide](docs/DEMO_GUIDE.md) with setup, installation checks, execution commands, troubleshooting, and step-by-step demonstration instructions. Experimental datasets, graphs, and validation screenshots are stored in the `results/` directory.
 
-## Experimental Results
-
-The following measurements are the initial observed results from one baseline run and one Dynamic QoS run. They are included as experimental observations, not as statistically conclusive results.
+## Experimental results
 
 ### Synchronization performance under TCP load
+
+The following results are from one baseline run and one Dynamic QoS run on the original VM. They are observed experimental results, not statistically conclusive averages across repeated trials.
 
 | Metric | Baseline | Dynamic QoS |
 |---|---:|---:|
@@ -173,39 +170,33 @@ The observed average RTT reduction between these two runs is approximately **97.
 | Receiver throughput | 9.38 Mbps | 9.41 Mbps |
 | TCP retransmissions | 1775 | 1833 |
 
-The receiver throughput was nearly identical in both experiments, indicating that the competing TCP traffic was comparable during the two tests. Additional repeated trials are recommended before making a final performance claim.
-
-#### RTT performance graphs
-
-The following graphs compare the individual benchmark samples and the average synchronization RTT under competing TCP traffic.
-
-![Per-sample RTT comparison](results/qos/performance/graphs/rtt_samples_comparison.png)
-
-![Average RTT comparison](results/qos/performance/graphs/average_rtt_comparison.png)
+The receiver throughput was nearly identical in both experiments, indicating that the competing TCP traffic was comparable during the two tests. Additional repeated trials are recommended before making a general performance claim.
 
 ### Controlled link-delay experiment
 
-| Experiment | Client 1 configured delay | Client 1 RTT | Client 2 configured delay | Client 2 RTT |
-|---|---:|---:|---:|---:|
-| Initial configured delays | 20 ms | 35.859 ms | 50 ms | 64.097 ms |
-| Client 1 delay increased | 100 ms | 117.589 ms | 50 ms | 65.186 ms |
-| Client 1 delay restored | 20 ms | 35.278 ms | 50 ms | Not recorded |
+For this experiment, Client 1's host-side interface delay was changed from 20 ms to 100 ms. Client 2 remained configured at 50 ms. The table reports averages of the samples collected in each condition.
 
-These are individual observed runs. The unrecorded Client 2 measurement in the final row is intentionally omitted.
+| Condition | Client 1 delay | Client 1 average RTT | Client 1 samples | Client 2 delay | Client 2 average RTT | Client 2 samples |
+|---|---:|---:|---:|---:|---:|---:|
+| Baseline | 20 ms | 39.185 ms | 3 | 50 ms | 65.609 ms | 3 |
+| Client 1 delay increased | 100 ms | 115.682 ms | 3 | 50 ms | 66.555 ms | 4 |
 
-![Configured link delay versus measured RTT](results/synchronization/graphs/link_delay_vs_rtt.png)
+Increasing Client 1's configured delay increased its average RTT by **76.497 ms**. Client 2's average RTT changed by **0.946 ms**, while its configured delay remained unchanged. Client 1's original 20 ms qdisc configuration was subsequently restored and verified; a post-restoration average RTT was not recorded.
+
+The individual measurements are recorded in [`synchronization_delay_experiment_repeat.csv`](results/synchronization/synchronization_delay_experiment_repeat.csv). Exact RTT values can vary with VM scheduling and network overhead.
 
 ### Clock-offset estimation accuracy
 
-A separate experiment simulated the client clock as 50 ms ahead of the reference server. Therefore, the expected server-minus-client offset was -50 ms. The absolute errors between the expected and estimated offsets across five measurements were:
+The clock-error experiment simulates the client clock as 50 ms ahead of the reference server. Therefore, the expected server-minus-client offset is -50 ms. The test application reports one measurement per execution and does not modify the host operating-system clock.
 
-`5.330 ms`, `5.023 ms`, `5.593 ms`, `5.182 ms`, and `5.355 ms`.
+| Run | Absolute errors across five measurements | Average absolute error |
+|---|---|---:|
+| Run 1 | 5.330, 5.023, 5.593, 5.182, 5.355 ms | 5.297 ms |
+| Run 2 | 6.351, 4.500, 5.696, 4.258, 5.616 ms | 5.284 ms |
 
-The average absolute error was approximately **5.297 ms**.
+The Run 2 measurements are stored in [`clock_offset_accuracy_repeat.csv`](results/synchronization/clock_offset_accuracy_repeat.csv). The earlier results remain in `clock_offset_accuracy.csv`. The [Demo Guide](docs/DEMO_GUIDE.md) explains how to reproduce the five measurements.
 
-![Clock-offset estimation error](results/synchronization/graphs/clock_offset_error.png)
-
-## Validation Evidence
+## Validation evidence
 
 The `results/validation/` directory contains screenshots captured during project testing:
 
@@ -222,12 +213,9 @@ The `results/validation/` directory contains screenshots captured during project
 - The client estimates clock offset but does not change the operating system clock.
 - The network is emulated in Mininet; results may differ on physical networks.
 - The 6 Mbps activation and 3.5 Mbps deactivation thresholds are experimental values selected for the configured 10 Mbps port rate.
-- The current performance comparison consists of one baseline run and one Dynamic QoS run. Repeated trials are needed for a stronger statistical conclusion.
+- Performance comparisons are based on individual runs; repeated trials are needed for stronger statistical conclusions.
 - Execution and measurements can vary with VM CPU scheduling and system load.
-
-## Demonstration and Setup
-
-For prerequisites, installation checks, setup instructions, terminal commands, troubleshooting, and the complete classroom demonstration sequence, see the **[Demo Guide](docs/DEMO_GUIDE.md)**.
+- The UDP server currently handles datagrams sequentially in one receive loop. Multiple clients can send requests, but requests are not processed by parallel worker threads.
 
 ## References
 
